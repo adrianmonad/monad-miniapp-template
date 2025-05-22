@@ -19,17 +19,17 @@ interface FrameContextValue {
   actions: typeof sdk.actions | null;
 }
 
-const FrameProviderContext = createContext<FrameContextValue | undefined>(
-  undefined
-);
+// Create context with a default value to prevent undefined errors
+const FrameProviderContext = createContext<FrameContextValue>({
+  context: null,
+  isSDKLoaded: false,
+  isEthProviderAvailable: false,
+  error: null,
+  actions: null,
+});
 
-export function useFrame() {
-  const context = useContext(FrameProviderContext);
-  if (context === undefined) {
-    throw new Error("useFrame must be used within a FrameProvider");
-  }
-  return context;
-}
+// Export the hook for accessing the context
+export const useFrame = () => useContext(FrameProviderContext);
 
 interface FrameProviderProps {
   children: ReactNode;
@@ -38,35 +38,58 @@ interface FrameProviderProps {
 export function FrameProvider({ children }: FrameProviderProps) {
   const [context, setContext] = useState<FrameContext | null>(null);
   const [actions, setActions] = useState<typeof sdk.actions | null>(null);
-  const [isEthProviderAvailable, setIsEthProviderAvailable] =
-    useState<boolean>(false);
+  const [isEthProviderAvailable, setIsEthProviderAvailable] = useState<boolean>(false);
   const [isSDKLoaded, setIsSDKLoaded] = useState(false);
   const [error, setError] = useState<string | null>(null);
 
   useEffect(() => {
     const load = async () => {
       try {
-        const context = await sdk.context;
-        if (context) {
-          setContext(context as FrameContext);
+        // Wrap SDK initialization in try/catch for better error handling
+        console.log("Initializing Farcaster SDK...");
+        
+        // Check if SDK is properly loaded
+        if (!sdk || !sdk.context) {
+          console.log("SDK not available or missing context property");
+          setError("SDK not available");
+          return;
+        }
+        
+        const farcasterContext = await sdk.context;
+        if (farcasterContext) {
+          console.log("Farcaster context loaded successfully");
+          setContext(farcasterContext as FrameContext);
           setActions(sdk.actions);
-          setIsEthProviderAvailable(sdk.wallet.ethProvider ? true : false);
+          setIsEthProviderAvailable(sdk.wallet && sdk.wallet.ethProvider ? true : false);
+          
+          // Correctly call ready with proper error handling
+          try {
+            await sdk.actions.ready();
+            console.log("SDK ready called successfully");
+          } catch (readyError) {
+            console.warn("Error calling sdk.actions.ready():", readyError);
+            // Continue despite ready error
+          }
         } else {
+          console.log("Failed to load Farcaster context - returned null/undefined");
           setError("Failed to load Farcaster context");
         }
-        await sdk.actions.ready();
       } catch (err) {
-        setError(
-          err instanceof Error ? err.message : "Failed to initialize SDK"
-        );
+        const errorMessage = err instanceof Error ? err.message : "Failed to initialize SDK";
         console.error("SDK initialization error:", err);
+        setError(errorMessage);
       }
     };
 
-    if (sdk && !isSDKLoaded) {
+    if (!isSDKLoaded) {
+      console.log("Loading Farcaster SDK...");
       load().then(() => {
         setIsSDKLoaded(true);
-        console.log("SDK loaded");
+        console.log("SDK loading process completed");
+      }).catch(e => {
+        console.error("Unexpected error in SDK loading:", e);
+        setIsSDKLoaded(true); // Mark as loaded anyway to prevent infinite retry
+        setError("Unexpected SDK loading error");
       });
     }
   }, [isSDKLoaded]);

@@ -26,76 +26,38 @@ export function WalletActions() {
   }
 
   return (
-    <div className="space-y-4 border border-[#333] rounded-md p-4">
-      <h2 className="text-xl font-bold text-left">sdk.wallet.ethProvider</h2>
-      <div className="flex flex-row space-x-4 justify-start items-start">
+    <div className="w-full max-w-md mx-auto p-4 bg-[var(--ro-panel-bg)] rounded-lg shadow-lg border-2 border-[var(--ro-gold)] font-pixel text-[var(--ro-gold)]">
+      <h2 className="text-lg font-pixel mb-4 text-center text-[var(--ro-gold)]">WALLET STATUS</h2>
+      <div className="flex flex-col gap-3 items-center">
         {isConnected ? (
-          <div className="flex flex-col space-y-4 justify-start">
-            <p className="text-sm text-left">
-              Connected to wallet:{" "}
-              <span className="bg-white font-mono text-black rounded-md p-[4px]">
-                {address}
-              </span>
-            </p>
-            <p className="text-sm text-left">
-              Chain Id:{" "}
-              <span className="bg-white font-mono text-black rounded-md p-[4px]">
-                {chainId}
-              </span>
-            </p>
-            {chainId === monadTestnet.id ? (
-              <div className="flex flex-col space-y-2 border border-[#333] p-4 rounded-md">
-                <h2 className="text-lg font-semibold text-left">
-                  Send Transaction Example
-                </h2>
-                <button
-                  className="bg-white text-black rounded-md p-2 text-sm"
-                  onClick={sendTransactionHandler}
-                >
-                  Send Transaction
-                </button>
-                {hash && (
-                  <button
-                    className="bg-white text-black rounded-md p-2 text-sm"
-                    onClick={() =>
-                      window.open(
-                        `https://testnet.monadexplorer.com/tx/${hash}`,
-                        "_blank"
-                      )
-                    }
-                  >
-                    View Transaction
-                  </button>
-                )}
+          <>
+            <div className="w-full flex flex-col gap-2 items-center">
+              <div className="w-full flex flex-row justify-between items-center">
+                <span className="text-xs text-[var(--ro-gold)]">Wallet:</span>
+                <span className="font-mono text-xs text-[var(--ro-gold)]">{address ? `${address.slice(0, 6)}...${address.slice(-4)}` : "-"}</span>
               </div>
-            ) : (
-              <button
-                className="bg-white text-black rounded-md p-2 text-sm"
-                onClick={() => switchChain({ chainId: monadTestnet.id })}
-              >
-                Switch to Monad Testnet
-              </button>
-            )}
-
+              <div className="w-full flex flex-row justify-between items-center">
+                <span className="text-xs text-[var(--ro-gold)]">Chain ID:</span>
+                <span className="font-mono text-xs text-[var(--ro-gold)]">{chainId || "-"}</span>
+              </div>
+            </div>
             <button
-              className="bg-white text-black rounded-md p-2 text-sm"
+              className="w-full mt-4 py-2 rounded bg-red-700 hover:bg-red-600 text-white font-pixel border-2 border-red-900 shadow-md transition-all"
               onClick={() => disconnect()}
             >
               Disconnect Wallet
             </button>
-          </div>
+          </>
         ) : (
-          isEthProviderAvailable ?
-          (
+          isEthProviderAvailable ? (
             <button
-              className="bg-white text-black w-full rounded-md p-2 text-sm"
+              className="game-button w-full py-2 text-sm"
               onClick={() => connect({ connector: farcasterFrame() })}
             >
               Connect Wallet
             </button>
-          ) :
-          (
-            <p className="text-sm text-left">
+          ) : (
+            <p className="text-sm text-center text-[var(--ro-gold)] py-2 border border-[var(--ro-gold)]/30 rounded-lg bg-[var(--ro-panel-dark)] p-3 shadow-inner">
               Wallet connection only via Warpcast
             </p>
           )
