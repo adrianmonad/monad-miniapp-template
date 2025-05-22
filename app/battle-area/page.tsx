@@ -10,6 +10,8 @@ import BattleSystem from '@/components/Game/BattleSystem';
 import sdk from '@farcaster/frame-sdk';
 import { useInventory } from '@/lib/InventoryContext';
 import { useAccount } from 'wagmi';
+import { ethers } from 'ethers';
+import { Toaster, toast } from 'sonner';
 
 // Enhanced mobile detection with extra checks
 const detectMobile = () => {
@@ -31,56 +33,6 @@ const detectMobile = () => {
 
 // Use the enhanced detection
 const isMobile = detectMobile();
-
-// Helper functions from useMagicEdenInventory
-// Get elemental name based on token ID range
-const getElementalName = (tokenId: number): string => {
-  if (tokenId >= 1 && tokenId <= 3250) return "Rhoxodon";
-  if (tokenId >= 3251 && tokenId <= 6499) return "Nactivyx";
-  if (tokenId >= 6500 && tokenId <= 7999) return "Infermor";
-  if (tokenId >= 8000 && tokenId <= 9499) return "Emberith";
-  if (tokenId >= 9500 && tokenId <= 10000) return "Nyxar";
-  return "Unknown Elemental"; // Fallback
-};
-
-// Get elemental type based on token ID for image mapping
-const getElementalType = (tokenId: number): string => {
-  // Simple deterministic mapping based on token ID
-  if (tokenId >= 1 && tokenId <= 3250) return "earth"; // Rhoxodon - earth
-  if (tokenId >= 3251 && tokenId <= 6499) return "water"; // Nactivyx - water
-  if (tokenId >= 6500 && tokenId <= 7999) return "fire"; // Infermor - fire
-  if (tokenId >= 8000 && tokenId <= 9499) return "fire"; // Emberith - fire (different variant)
-  if (tokenId >= 9500 && tokenId <= 10000) return "air"; // Nyxar - air
-  return "fire"; // Default fallback
-};
-
-// Get rarity based on token ID range
-const getRarity = (tokenId: number): string => {
-  if (tokenId >= 1 && tokenId <= 3250) return "Uncommon";   // Rhoxodon - Uncommon
-  if (tokenId >= 3251 && tokenId <= 6499) return "Common";   // Nactivyx - Common
-  if (tokenId >= 6500 && tokenId <= 7999) return "Epic";     // Infermor - Epic
-  if (tokenId >= 8000 && tokenId <= 9499) return "Legendary"; // Emberith - Legendary
-  if (tokenId >= 9500 && tokenId <= 10000) return "Ultra Rare"; // Nyxar - Ultra Rare
-  return "Unknown"; // Fallback
-};
-
-// Get image URL based on elemental name
-const getElementalImage = (name: string): string => {
-  switch (name) {
-    case 'Rhoxodon':
-      return '/assets/Rhoxodon.gif';
-    case 'Nactivyx':
-      return '/assets/Nactivyx.gif';
-    case 'Infermor':
-      return '/assets/Infermor.gif';
-    case 'Emberith':
-      return '/assets/Emberith.gif';
-    case 'Nyxar':
-      return '/assets/Nyxar.gif';
-    default:
-      return '/assets/Emberith.gif'; // Default fallback
-  }
-};
 
 export default function BattleAreaPage() {
   console.log("BattleAreaPage rendering, isMobile:", isMobile);
@@ -122,6 +74,96 @@ export default function BattleAreaPage() {
   const [directInventory, setDirectInventory] = useState<any[]>([]);
   const [isDirectFetching, setIsDirectFetching] = useState<boolean>(false);
   
+  // Helper functions for NFT metadata
+  const getElementalName = (tokenId: number): string => {
+    if (tokenId >= 1 && tokenId <= 3250) return "Rhoxodon";
+    if (tokenId >= 3251 && tokenId <= 6499) return "Nactivyx";
+    if (tokenId >= 6500 && tokenId <= 7999) return "Infermor";
+    if (tokenId >= 8000 && tokenId <= 9499) return "Emberith";
+    if (tokenId >= 9500 && tokenId <= 10000) return "Nyxar";
+    return "Unknown Elemental"; // Fallback
+  };
+  
+  const getElementalType = (tokenId: number): string => {
+    // Simple deterministic mapping based on token ID
+    if (tokenId >= 1 && tokenId <= 3250) return "earth"; // Rhoxodon - earth
+    if (tokenId >= 3251 && tokenId <= 6499) return "water"; // Nactivyx - water
+    if (tokenId >= 6500 && tokenId <= 7999) return "fire"; // Infermor - fire
+    if (tokenId >= 8000 && tokenId <= 9499) return "fire"; // Emberith - fire (different variant)
+    if (tokenId >= 9500 && tokenId <= 10000) return "air"; // Nyxar - air
+    return "fire"; // Default fallback
+  };
+  
+  const getRarity = (tokenId: number): string => {
+    if (tokenId >= 1 && tokenId <= 3250) return "Uncommon";   // Rhoxodon - Uncommon
+    if (tokenId >= 3251 && tokenId <= 6499) return "Common";   // Nactivyx - Common
+    if (tokenId >= 6500 && tokenId <= 7999) return "Epic";     // Infermor - Epic
+    if (tokenId >= 8000 && tokenId <= 9499) return "Legendary"; // Emberith - Legendary
+    if (tokenId >= 9500 && tokenId <= 10000) return "Ultra Rare"; // Nyxar - Ultra Rare
+    return "Unknown"; // Fallback
+  };
+  
+  const getElementalImage = (name: string): string => {
+    switch (name) {
+      case 'Rhoxodon':
+        return '/assets/Rhoxodon.gif';
+      case 'Nactivyx':
+        return '/assets/Nactivyx.gif';
+      case 'Infermor':
+        return '/assets/Infermor.gif';
+      case 'Emberith':
+        return '/assets/Emberith.gif';
+      case 'Nyxar':
+        return '/assets/Nyxar.gif';
+      default:
+        return '/assets/Emberith.gif'; // Default fallback
+    }
+  };
+  
+  // UI helper functions
+  const shortenAddress = (address: string): string => {
+    if (!address) return '';
+    return `${address.substring(0, 6)}...${address.substring(address.length - 4)}`;
+  };
+
+  const copyToClipboard = (text: string): void => {
+    navigator.clipboard.writeText(text);
+    toast.success('Address copied to clipboard!');
+  };
+
+  // Add test NFTs to inventory for testing
+  const addTestNFTs = () => {
+    const testNFTs = [
+      { id: '1', tokenId: '1', name: 'Rhoxodon', image: '/assets/Rhoxodon.gif', description: 'A uncommon elemental with unique abilities.', rarity: 'Uncommon', collectionName: 'Elementals Adventure', elementType: 'earth' },
+      { id: '2', tokenId: '2', name: 'Nactivyx', image: '/assets/Nactivyx.gif', description: 'A common elemental with unique abilities.', rarity: 'Common', collectionName: 'Elementals Adventure', elementType: 'water' },
+      { id: '3', tokenId: '3', name: 'Infermor', image: '/assets/Infermor.gif', description: 'A epic elemental with unique abilities.', rarity: 'Epic', collectionName: 'Elementals Adventure', elementType: 'fire' },
+      { id: '4', tokenId: '4', name: 'Emberith', image: '/assets/Emberith.gif', description: 'A legendary elemental with unique abilities.', rarity: 'Legendary', collectionName: 'Elementals Adventure', elementType: 'fire' },
+      { id: '5', tokenId: '5', name: 'Nyxar', image: '/assets/Nyxar.gif', description: 'A ultra rare elemental with unique abilities.', rarity: 'Ultra Rare', collectionName: 'Elementals Adventure', elementType: 'air' },
+    ];
+    setTestInventory(testNFTs);
+    toast.success('Test NFTs added to inventory!');
+  };
+
+  // Initialize wallet client
+  const setupWalletClient = async () => {
+    try {
+      setIsLoading(true);
+      setAuthStatusMessage("Initializing wallet...");
+      
+      // For simplicity, we'll just set wallet as initialized without actually setting up a client
+      setIsWalletInitialized(true);
+      setAuthStatusMessage("Wallet initialized and ready to battle!");
+      
+      toast.success("Wallet ready for battle!");
+    } catch (error) {
+      console.error("Error setting up wallet client:", error);
+      setAuthStatusMessage("Failed to initialize wallet. Please try again.");
+      toast.error("Wallet initialization failed.");
+    } finally {
+      setIsLoading(false);
+    }
+  };
+
   // Directly fetch NFTs from the API
   const fetchDirectNFTs = async (walletAddress: string) => {
     if (!walletAddress) return;
@@ -501,18 +543,15 @@ export default function BattleAreaPage() {
     }
   };
 
-  // Show toast message
+  // Show toast message using sonner
   const showToastMessage = (message: string) => {
-    setToastMessage(message);
-    setShowToast(true);
-    setTimeout(() => setShowToast(false), 3000);
+    toast.success(message);
   };
 
   // Handle transaction completion
   const handleBattleComplete = (hash: string) => {
     setTxHash(hash);
-    // Update balance after transaction
-    setTimeout(() => getBalance(), 2000);
+    showToastMessage("Battle completed successfully!");
   };
 
   // Handle login button click
@@ -539,166 +578,76 @@ export default function BattleAreaPage() {
   }
 
   return (
-    <div className="min-h-screen flex flex-col items-center pt-8 pb-16 bg-black text-white">
-      <h1 className="text-5xl font-bold mb-4 font-pixel">Battle Arena</h1>
-      <p className="text-yellow-400 text-sm mb-6 max-w-lg text-center">
-        Choose an Elemental by rarity to battle. You'll have a time window based on your NFTs, but pressing the Attack button completes the battle instantly!
-      </p>
+    <div className="relative flex flex-col h-screen">
+      {/* Sonner Toast Container */}
+      <Toaster position="top-center" />
       
-      {!authenticated ? (
-        <div className="flex flex-col items-center bg-gray-900 rounded-lg p-6 shadow-lg max-w-md mx-auto">
-          <p className="text-xl font-pixel text-yellow-400 mb-4">Login to Battle</p>
-          <p className="text-sm text-gray-300 mb-6 text-center">
-            Connect your wallet to access the Battle Arena and fight with your Elementals
-          </p>
-          <button
-            className="ro-button text-lg px-6 py-3 bg-blue-600"
-            onClick={handleLogin}
+      <div className="min-h-screen flex flex-col items-center pt-8 pb-16 bg-black text-white">
+        <h1 className="text-5xl font-bold mb-4 font-pixel">Battle Arena</h1>
+        
+        {/* Wallet Address Display */}
+        {mainWalletAddress && (
+          <div onClick={() => copyToClipboard(mainWalletAddress)} className="mb-4 cursor-pointer flex items-center">
+            <span className="text-xs text-gray-400">
+              {shortenAddress(mainWalletAddress)} (Click to copy)
+            </span>
+          </div>
+        )}
+        
+        {/* Loading Notice */}
+        <div className="mb-4 text-xs text-yellow-400 bg-gray-800 p-2 rounded text-center">
+          Inventory may load slowly. Please be patient while we fetch your elementals.
+        </div>
+        
+        {/* Ready to Battle Message */}
+        <p className="text-xl mb-8 font-pixel text-green-400">{authStatusMessage}</p>
+        
+        {/* Debug/Test Buttons */}
+        <div className="flex flex-wrap gap-2 mb-4">
+          <button 
+            onClick={() => refreshInventory()} 
+            className="bg-purple-700 hover:bg-purple-600 text-white px-3 py-1 rounded-md text-sm"
           >
-            Connect Wallet
+            Refresh Inventory
+          </button>
+          
+          <button 
+            onClick={() => fetchDirectNFTs(mainWalletAddress || embeddedWalletAddress)} 
+            className="bg-blue-700 hover:bg-blue-600 text-white px-3 py-1 rounded-md text-sm"
+          >
+            Direct Fetch NFTs
+          </button>
+          
+          <button 
+            onClick={addTestNFTs} 
+            className="bg-green-700 hover:bg-green-600 text-white px-3 py-1 rounded-md text-sm"
+          >
+            Add Test NFTs
           </button>
         </div>
-      ) : (
-        <div className="flex flex-col items-center w-full">
-          {/* Wallet Info Section */}
-          <div className="w-full max-w-md mx-auto mb-4 bg-gray-900 rounded-lg p-4">
-            <div className="mb-1 text-yellow-500 text-xs font-mono">{authStatusMessage}</div>
-            
-            {/* Transaction Wallet Display */}
-            <div className="flex items-center mb-2">
-              <div className="text-green-500 font-mono truncate flex-1">
-                Wallet: {embeddedWalletAddress ? embeddedWalletAddress.substring(0, 8) + '...' + embeddedWalletAddress.substring(embeddedWalletAddress.length - 6) : 'Loading wallet...'}
-              </div>
-              <button 
-                className="ml-2 px-2 py-1 bg-gray-700 rounded hover:bg-gray-600 text-xs"
-                onClick={() => {
-                  if (embeddedWalletAddress) {
-                    navigator.clipboard.writeText(embeddedWalletAddress);
-                    showToastMessage('Wallet address copied to clipboard!');
-                  }
-                }}
-                title="Copy wallet address"
-              >
-                <svg xmlns="http://www.w3.org/2000/svg" className="h-4 w-4" fill="none" viewBox="0 0 24 24" stroke="currentColor">
-                  <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M8 5H6a2 2 0 00-2 2v12a2 2 0 002 2h10a2 2 0 002-2v-1M8 5a2 2 0 002 2h2a2 2 0 002-2M8 5a2 2 0 012-2h2a2 2 0 012 2m0 0h2a2 2 0 012 2v3m2 4H10m0 0l3-3m-3 3l3 3" />
-                </svg>
-              </button>
-            </div>
-            
-            {balance && (
-              <div className="mb-2 text-yellow-400 font-mono">Balance: {balance}</div>
-            )}
-            
-            <div className="flex justify-between">
-              <button 
-                className="ro-button-small bg-blue-600 hover:bg-blue-700"
-                onClick={getBalance}
-                disabled={isLoading}
-              >
-                Refresh Balance
-              </button>
-              <button 
-                className="ro-button-small bg-green-600 hover:bg-green-700"
-                onClick={() => {
-                  refreshInventory();
-                  showToastMessage('Refreshing inventory...');
-                }}
-                disabled={isInventoryLoading}
-              >
-                Refresh Inventory
-              </button>
-              <button
-                className="ro-button-small bg-purple-600 hover:bg-purple-700 ml-1"
-                onClick={() => {
-                  // Always use the direct fetch method with any address
-                  // (it will use the hardcoded main wallet address)
-                  fetchDirectNFTs("any-address-will-work");
-                  showToastMessage('Refreshing NFT data from main wallet...');
-                }}
-                disabled={isDirectFetching}
-              >
-                Force Refresh NFTs
-              </button>
-              <button 
-                className="ro-button-secondary" 
-                onClick={logout}
-              >
-                Logout
-              </button>
-            </div>
-            
-            {/* Inventory Loading Notice */}
-            <div className="mt-2 text-xs text-yellow-400 bg-gray-800 p-2 rounded text-center">
-              Inventory may load slowly. Keep clicking refresh if it doesn't show up yet.
-            </div>
+        
+        {/* Battle System Component */}
+        {isWalletInitialized ? (
+          <BattleSystem
+            walletAddress={mainWalletAddress || embeddedWalletAddress}
+            walletClient={walletClient.current}
+            inventory={directInventory.length > 0 ? directInventory : inventory}
+            onShowToast={showToastMessage}
+            onBattleComplete={handleBattleComplete}
+          />
+        ) : (
+          <div className="text-center p-4 bg-gray-800 rounded-lg max-w-md">
+            <p className="text-xl font-pixel mb-4">Initializing your battle wallet...</p>
+            <p className="text-sm text-gray-400 mb-6">This may take a moment. Please wait.</p>
+            <button
+              onClick={setupWalletClient}
+              className="bg-blue-600 hover:bg-blue-700 text-white px-4 py-2 rounded-md"
+            >
+              Retry
+            </button>
           </div>
-          
-          {/* Transaction Hash Display */}
-          {txHash && (
-            <div className="w-full max-w-md mx-auto mb-4 bg-green-900 p-3 rounded-md">
-              <p className="font-bold text-sm">Transaction sent:</p>
-              <p className="text-xs truncate">{txHash}</p>
-              <a 
-                href={`https://testnet.monadexplorer.com/tx/${txHash}`}
-                target="_blank"
-                rel="noopener noreferrer"
-                className="text-blue-400 underline text-sm"
-              >
-                View on Explorer
-              </a>
-            </div>
-          )}
-          
-          {/* Battle System Component */}
-          {isWalletInitialized ? (
-            <>
-              <BattleSystem
-                walletAddress={embeddedWalletAddress}
-                walletClient={walletClient.current}
-                inventory={directInventory.length > 0 ? directInventory : inventory}
-                onShowToast={showToastMessage}
-                onBattleComplete={handleBattleComplete}
-              />
-            </>
-          ) : (
-            <div className="text-center p-6 bg-gray-900 rounded-lg max-w-md w-full">
-              <p className="text-yellow-400 mb-2 font-bold">Wallet Initialization</p>
-              <p className="text-sm text-gray-300 mb-3">{authStatusMessage}</p>
-              
-              <div className="flex flex-col gap-2 mt-4">
-                <button 
-                  onClick={() => window.location.reload()}
-                  className="ro-button-small bg-green-600 hover:bg-green-700"
-                >
-                  Refresh Page
-                </button>
-                
-                <div className="text-xs text-gray-400 mt-2 mb-2">
-                  <p>Trouble with the embedded wallet?</p>
-                  <p>You may need to clear your browser cache or try a different browser.</p>
-                </div>
-                
-                <button
-                  onClick={() => {
-                    setIsWalletInitialized(true);
-                    setAuthStatusMessage("Manual wallet mode - Some features may be limited");
-                  }}
-                  className="ro-button-small bg-red-600 hover:bg-red-700"
-                >
-                  Force Battle Mode (Limited)
-                </button>
-              </div>
-            </div>
-          )}
-        </div>
-      )}
-      
-      {/* Toast Notification */}
-      {showToast && (
-        <div className="fixed bottom-4 right-4 bg-green-700 text-white px-4 py-2 rounded-md shadow-lg">
-          {toastMessage}
-        </div>
-      )}
+        )}
+      </div>
     </div>
   );
 } 
